@@ -1,43 +1,20 @@
-# ThingPulse esp8266-spotify-remote
-
-[![ThingPulse logo](https://thingpulse.com/assets/ThingPulse-w300.svg)](https://thingpulse.com)
+# esp8266-spotify-remote
 
 ## Purpose of this project
 
-This project lets you control a Spotify player (phone, browser, etc) from an ESP8266. Album artworks as well as title and artist name
-are fetched from Spotify's Web API over WiFi and displayed on a ILI9341 color TFT screen. The currently played song can be
-paused, played and skipped to the next or previous song in the playlist.
+This project lets you control a Spotify player (phone, browser, etc) from an ESP8266. Weather is also provided with OpenWeather.
 
 A full OAuth 2.0 web flow is used to acquire the necessary access and refresh tokens to permit the user to control the player. In order to
 run this project on your device you will have to setup an application on Spotify's developer dashboard.
 
 ## Features
 
- - Artwork Download
- - Control Player on touch screen: Play, Pause, Next, Prev
+ - Song Display
+ - Progress Bar
+ - Weather Display
+ - Tile Sensor Capable to Prevent Burn-In
+ - 3-Button Menu System
  - Authentication and Authorization (OAuth 2.0 flow) On device.
-
-Demo Video:
-
- [![Demo Video](https://img.youtube.com/vi/xKmXMUoo8ps/0.jpg)](https://www.youtube.com/watch?v=xKmXMUoo8ps)
-
-## Recommended Hardware
-
-We developed this project specifically for our [ESP8266 Color Kit](https://thingpulse.com/product/esp8266-wifi-color-display-kit-2-4/). If you appreciate the hard work and our willingness to open-source projects like this one then please support us by buying our hardware.
-
-<a href="https://thingpulse.com/product/esp8266-wifi-color-display-kit-2-4/">
-  <img src="https://thingpulse.com/wp-content/uploads/2019/04/ThingPulse-Color-Kit-2-768x534.jpg" width="300">
-</a>
-
-
-## Contributions
-
-Please see our [Guidelines](CONTRIBUTING.md) if you want to contribute to this project. Contributions are more than welcome!
-
-## Service level promise
-
-<table><tr><td><img src="https://thingpulse.com/assets/ThingPulse-open-source-community.png" width="150">
-</td><td>This is a ThingPulse <em>community</em> project. See our <a href="https://thingpulse.com/about/open-source-commitment/">open-source commitment declaration</a> for what this means.</td></tr></table>
 
 ## Setup Instructions
 
