@@ -20,9 +20,12 @@
  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  SOFTWARE.
  */
-
+#include <time.h>
+#include "caCert.h"
 #include <ESP8266WiFi.h>
-#include <ESP8266HTTPClient.h>
+#include <ESP8266mDNS.h>  
+//#include <ESP8266HTTPClient.h>
+#include <WiFiClientSecure.h>
 #include "SpotifyClient.h"
 
 #define min(X, Y) (((X)<(Y))?(X):(Y))
@@ -46,11 +49,21 @@ uint16_t SpotifyClient::update(SpotifyData *data, SpotifyAuth *auth) {
   JsonStreamingParser parser;
   parser.setListener(this);
 
+   //https://accounts.spotify.com/api/token
+  // Load root certificate in DER format into WiFiClientSecure object
+  bool res = client.setCACert_P(caCert, caCertLen);
+  if (!res) {
+    Serial.println("Failed to load root CA certificate!");
+    while (true) {
+      yield();
+    }
+  }
+
   String host = "api.spotify.com";
   const int port = 443;
   String url = "/v1/me/player/currently-playing";
   if (!client.connect(host.c_str(), port)) {
-    Serial.println("connection failed");
+    Serial.println("connection failed (update)");
     return 0;
   }
 
@@ -128,11 +141,21 @@ uint16_t SpotifyClient::playerCommand(SpotifyAuth *auth, String method, String c
   JsonStreamingParser parser;
   parser.setListener(this);
 
+   //https://accounts.spotify.com/api/token
+  // Load root certificate in DER format into WiFiClientSecure object
+  bool res = client.setCACert_P(caCert, caCertLen);
+  if (!res) {
+    Serial.println("Failed to load root CA certificate!");
+    while (true) {
+      yield();
+    }
+  }
+
   String host = "api.spotify.com";
   const int port = 443;
   String url = "/v1/me/player/" + command;
   if (!client.connect(host.c_str(), port)) {
-    Serial.println("connection failed");
+    Serial.println("connection failed (playerCommand)");
     return 0;
   }
 
@@ -199,15 +222,47 @@ void SpotifyClient::getToken(SpotifyAuth *auth, String grantType, String code) {
   JsonStreamingParser parser;
   parser.setListener(this);
   WiFiClientSecure client;
+
+//  Serial.print("Setting time using SNTP");
+//  configTime(8 * 3600, 0, "pool.ntp.org", "time.nist.gov");
+//  time_t now = time(nullptr);
+//  while (now < 8 * 3600 * 2) {
+//    delay(500);
+//    Serial.print(".");
+//    now = time(nullptr);
+//  }
+//  Serial.println("");
+//  struct tm timeinfo;
+//  gmtime_r(&now, &timeinfo);
+//  Serial.print("Current time: ");
+//  Serial.print(asctime(&timeinfo));
+  
   //https://accounts.spotify.com/api/token
+  // Load root certificate in DER format into WiFiClientSecure object
+  bool res = client.setCACert_P(caCert, caCertLen);
+  if (!res) {
+    Serial.println("Failed to load root CA certificate!");
+    while (true) {
+      yield();
+    }
+  }
+  else {
+    Serial.println("Loaded root CA certificate!");
+  }
+
+  
   const char* host = "accounts.spotify.com";
   const int port = 443;
   String url = "/api/token";
-  if (!client.connect(host, port)) {
-    Serial.println("connection failed");
-    return;
-  }
 
+  Serial.println("Got Here");
+  while (!client.connect(host, port)) {
+    Serial.println("Connection to spotify failed (getToken), \nwaiting and trying again...");
+    delay(1000);
+    //return;
+  }
+  Serial.println("Got Here2");
+  
   Serial.print("Requesting URL: ");
   //Serial.println(url);
   String codeParam = "code";
@@ -266,9 +321,10 @@ void SpotifyClient::getToken(SpotifyAuth *auth, String grantType, String code) {
 
 String SpotifyClient::startConfigPortal() {
   String oneWayCode = "";
-
   server.on ( "/", [this]() {
+    Serial.print("Client ID: ");
     Serial.println(this->clientId);
+    Serial.print("Redirect URI: ");
     Serial.println(this->redirectUri);
     server.sendHeader("Location", String("https://accounts.spotify.com/authorize/?client_id=" 
       + this->clientId 
@@ -298,8 +354,9 @@ String SpotifyClient::startConfigPortal() {
   }
 
   Serial.println ( "HTTP server started" );
-
+  
   while(oneWayCode == "") {
+    MDNS.update();
     server.handleClient();
     yield();
   }
@@ -440,76 +497,76 @@ void SpotifyClient::executeCallback() {
     }
 }
 
-void SpotifyClient::downloadFile(String url, String filename) {
-    Serial.println("Downloading " + url + " and saving as " + filename);
-
-    // wait for WiFi connection
-    // TODO - decide if there's a different action for first call or subsequent calls
-	// boolean isFirstCall = true;
-    HTTPClient http;
-
-    Serial.print("[HTTP] begin...\n");
-
-    // configure server and url
-    http.begin(url);
-
-    Serial.print("[HTTP] GET...\n");
-    // start connection and send HTTP header
-    int httpCode = http.GET();
-    if(httpCode > 0) {
-        //SPIFFS.remove(filename);
-        fs::File f = SPIFFS.open(filename, "w+");
-        if (!f) {
-            Serial.println("file open failed");
-            return;
-        }
-        // HTTP header has been send and Server response header has been handled
-        Serial.printf("[HTTP] GET... code: %d\n", httpCode);
-
-        // file found at server
-        if(httpCode == HTTP_CODE_OK) {
-
-            // get lenght of document (is -1 when Server sends no Content-Length header)
-            int total = http.getSize();
-            int len = total;
-            //progressCallback(filename, 0,total, true);
-            // create buffer for read
-            uint8_t buff[128] = { 0 };
-
-            // get tcp stream
-            WiFiClient * stream = http.getStreamPtr();
-
-            // read all data from server
-            while(http.connected() && (len > 0 || len == -1)) {
-                // get available data size
-                size_t size = stream->available();
-
-                if(size) {
-                    // read up to 128 byte
-                    int c = stream->readBytes(buff, ((size > sizeof(buff)) ? sizeof(buff) : size));
-
-                    // write it to Serial
-                    f.write(buff, c);
-
-                    if(len > 0) {
-                        len -= c;
-                    }
-                    //progressCallback(filename, total - len,total, false);
-                    // isFirstCall = false;
-                    executeCallback();
-                }
-                delay(1);
-            }
-
-            Serial.println();
-            Serial.print("[HTTP] connection closed or file end.\n");
-
-        }
-        f.close();
-    } else {
-        Serial.printf("[HTTP] GET... failed, error: %s\n", http.errorToString(httpCode).c_str());
-    }
-    
-    http.end();
-    
-}
+//void SpotifyClient::downloadFile(String url, String filename) {
+//    Serial.println("Downloading " + url + " and saving as " + filename);
+//
+//    // wait for WiFi connection
+//    // TODO - decide if there's a different action for first call or subsequent calls
+//	// boolean isFirstCall = true;
+//    HTTPClient http;
+//
+//    Serial.print("[HTTP] begin...\n");
+//
+//    // configure server and url
+//    http.begin(url);
+//
+//    Serial.print("[HTTP] GET...\n");
+//    // start connection and send HTTP header
+//    int httpCode = http.GET();
+//    if(httpCode > 0) {
+//        //SPIFFS.remove(filename);
+//        fs::File f = SPIFFS.open(filename, "w+");
+//        if (!f) {
+//            Serial.println("file open failed");
+//            return;
+//        }
+//        // HTTP header has been send and Server response header has been handled
+//        Serial.printf("[HTTP] GET... code: %d\n", httpCode);
+//
+//        // file found at server
+//        if(httpCode == HTTP_CODE_OK) {
+//
+//            // get lenght of document (is -1 when Server sends no Content-Length header)
+//            int total = http.getSize();
+//            int len = total;
+//            //progressCallback(filename, 0,total, true);
+//            // create buffer for read
+//            uint8_t buff[128] = { 0 };
+//
+//            // get tcp stream
+//            WiFiClient * stream = http.getStreamPtr();
+//
+//            // read all data from server
+//            while(http.connected() && (len > 0 || len == -1)) {
+//                // get available data size
+//                size_t size = stream->available();
+//
+//                if(size) {
+//                    // read up to 128 byte
+//                    int c = stream->readBytes(buff, ((size > sizeof(buff)) ? sizeof(buff) : size));
+//
+//                    // write it to Serial
+//                    f.write(buff, c);
+//
+//                    if(len > 0) {
+//                        len -= c;
+//                    }
+//                    //progressCallback(filename, total - len,total, false);
+//                    // isFirstCall = false;
+//                    executeCallback();
+//                }
+//                delay(1);
+//            }
+//
+//            Serial.println();
+//            Serial.print("[HTTP] connection closed or file end.\n");
+//
+//        }
+//        f.close();
+//    } else {
+//        Serial.printf("[HTTP] GET... failed, error: %s\n", http.errorToString(httpCode).c_str());
+//    }
+//    
+//    http.end();
+//    
+//}

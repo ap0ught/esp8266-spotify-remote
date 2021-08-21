@@ -25,6 +25,12 @@
 const char* ssid = "yourssid";
 const char* password = "yourpassw0rd";
 
+//Weather Settings
+const char *count_Code  = "ca";
+const char *city_name   = "toronto";
+const char *ow_key      = "my-ow-key";
+const char *nodename    = "weather-boi";
+
 // Spotify settings
 String clientId = "API CLIENT ID";
 String clientSecret = "API CLIENT SECRET";
